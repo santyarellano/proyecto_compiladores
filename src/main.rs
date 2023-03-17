@@ -142,7 +142,6 @@ fn main() {
                 prods.push(productions);
 
                 entry_prods.insert(prods);
-                //grammar.insert(origin, prods);
             }
         }
         
