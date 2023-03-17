@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::fmt::{self, Display, Formatter};
 use std::io;
@@ -147,8 +147,64 @@ fn main() {
         
     }
 
+    // Get terminal and non-terminal symbols
+    let mut non_terminals = HashSet::new();
+    // add keys to non-terminal
+    for (key, _) in &grammar {
+        non_terminals.insert(key);
+    }
+
+    // add values to terminals if they aren't in non-terminals
+    let mut terminals = HashSet::new();
+    for (_, value) in &grammar {
+        for prods in value {
+            for item in prods {
+                match item {
+                    Production::Epsilon => (),
+                    Production::Symbol(s) => {
+                        match non_terminals.get(s) {
+                            Some(_) => (),
+                            None => {
+                                // it's a terminal
+                                terminals.insert(s);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Print terminals
+    print!("\nTerminal: ");
+    let mut first = true;
+    for ter in terminals {
+        if !first {
+            print!(", ");
+        }
+        else {
+            first = false;
+        }
+        print!("{ter}");
+    }
+    println!("");
+
+    // Print non-terminals
+    print!("Non terminal: ");
+    first = true;
+    for nter in non_terminals {
+        if !first {
+            print!(", ");
+        }
+        else {
+            first = false;
+        }
+        print!("{nter}");
+    }
+    println!("");
+
     // test printing out all grammar
-    println!("\n------- grammar --------");
+    /*println!("\n------- grammar --------");
     for (key, value) in grammar {
         
         for prods in value {
@@ -159,5 +215,6 @@ fn main() {
             println!("");
         }
         println!("");
-    }
+    }*/
+
 }
