@@ -36,7 +36,7 @@ fn main() {
             .expect("Failed to read line");
 
         // Scan input string
-        let mut iter = input.chars().peekable();
+        let mut iter = input.trim_end().chars().peekable();
         let mut peek = iter.next();
 
         let mut current = String::from("");
@@ -117,7 +117,7 @@ fn main() {
         }
 
         // Add last items read
-        if current != "" && current != " " && current != "\n" {
+        if current != "" && current != " " {
             if origin == "" {
                 println!("Error! Empty non terminal.");
                 return;
@@ -157,6 +157,7 @@ fn main() {
             for val in prods {
                 print!("{} ", val);
             }
+            println!("");
         }
         println!("");
     }
