@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::{self, Display, Formatter};
 use std::io;
 
@@ -25,7 +26,7 @@ fn main() {
     let n_lines: u16 = input.trim().parse().expect("Invalid Input");
 
     // Define grammar hashmap
-    let mut grammar = HashMap::new();
+    let mut grammar: HashMap<String, Vec<Vec<Production>>> = HashMap::new();
 
     // Read n lines
     for _ in 0..n_lines {
@@ -123,7 +124,6 @@ fn main() {
             }
             else if found_arrow{
                 // Origin exists, append to productions
-                println!("last symbol: {}", current);
                 productions.push(Production::Symbol(current.clone()));
             }
             else {
@@ -133,15 +133,30 @@ fn main() {
         }
         
         // add origin and production to grammar hashmap
-        grammar.insert(origin, productions);
+        match grammar.entry(origin) {
+            Entry::Occupied(mut prods) => {
+                prods.get_mut().push(productions);
+            }
+            Entry::Vacant(entry_prods) => {
+                let mut prods = Vec::new();
+                prods.push(productions);
+
+                entry_prods.insert(prods);
+                //grammar.insert(origin, prods);
+            }
+        }
+        
     }
 
     // test printing out all grammar
     println!("\n------- grammar --------");
     for (key, value) in grammar {
-        print!("{} ({}) -> ", key, value.len());
-        for val in value {
-            print!("{} ", val);
+        
+        for prods in value {
+            print!("{} ({}) -> ", key, prods.len());
+            for val in prods {
+                print!("{} ", val);
+            }
         }
         println!("");
     }
