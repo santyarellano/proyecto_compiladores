@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::fmt::{self, Display, Formatter};
 use std::io;
+use std::env;
+use std::fs;
 
 enum Production {
     Symbol(String),
@@ -18,6 +20,18 @@ impl Display for Production {
 }
 
 fn main() {
+    // Ask for file to read
+    println!("Enter file path to process: ");
+    let mut file_path = String::new();
+    io::stdin()
+        .read_line(&mut file_path)
+        .expect("Failed to read line");
+    let file_contents = fs::read_to_string(file_path.trim())
+        .expect("Error reading file (check file path)");
+
+    println!("{file_contents}");
+    
+
     // Read first input (number of lines)
     let mut input = String::new();
     io::stdin()
