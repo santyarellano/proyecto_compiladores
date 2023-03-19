@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use std::fmt::{self, Display, Formatter};
 use std::io;
-use std::env;
 use std::fs;
 
 enum Production {
@@ -19,38 +18,18 @@ impl Display for Production {
     }
 }
 
-fn main() {
-    // Ask for file to read
-    println!("Enter file path to process: ");
-    let mut file_path = String::new();
-    io::stdin()
-        .read_line(&mut file_path)
-        .expect("Failed to read line");
-    let file_contents = fs::read_to_string(file_path.trim())
-        .expect("Error reading file (check file path)");
+fn process_str(txt: String, grammar: &mut HashMap<String, Vec<Vec<Production>>>) {
+    let lines = txt.lines().collect::<Vec<&str>>();
 
-    println!("{file_contents}");
-    
+    // get number of lines to process
+    let n_lines: u16 = lines[0].parse().expect("Invalind number of lines");
 
-    // Read first input (number of lines)
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    let n_lines: u16 = input.trim().parse().expect("Invalid Input");
+    // process n lines
+    for i in 1..(n_lines + 1) {
+        let i: usize = i.into();
 
-    // Define grammar hashmap
-    let mut grammar: HashMap<String, Vec<Vec<Production>>> = HashMap::new();
-
-    // Read n lines
-    for _ in 0..n_lines {
-        input.clear();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read line");
-
-        // Scan input string
-        let mut iter = input.trim_end().chars().peekable();
+        // Scan line
+        let mut iter = lines[i].trim_end().chars().peekable();
         let mut peek = iter.next();
 
         let mut current = String::from("");
@@ -160,6 +139,24 @@ fn main() {
         }
         
     }
+}
+
+fn main() {
+    // Ask for file to read
+    println!("Enter file path to process: ");
+    let mut file_path = String::new();
+    io::stdin()
+        .read_line(&mut file_path)
+        .expect("Failed to read line");
+    let file_contents = fs::read_to_string(file_path.trim())
+        .expect("Error reading file (check file path)");
+
+    // Define grammar hashmap
+    let mut grammar: HashMap<String, Vec<Vec<Production>>> = HashMap::new();
+
+    // Process contents of file and store them in the grammar hashmap
+    process_str(file_contents, &mut grammar);
+    
 
     // Get terminal and non-terminal symbols
     let mut non_terminals = HashSet::new();
