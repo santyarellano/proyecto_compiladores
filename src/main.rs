@@ -306,10 +306,6 @@ fn main() {
     let file_contents =
         fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");*/
 
-    println!("********");
-    println!("{}", input);
-    println!("********");
-
     // Define grammar hashmap
     let mut grammar: HashMap<String, Vec<Vec<String>>> = HashMap::new();
 
@@ -366,9 +362,9 @@ fn main() {
     println!("");*/
 
     // debug print first non terminal
-    println!("\n- - -");
+    /*println!("\n- - -");
     println!("first non terminal: {}", first_non_terminal);
-    println!("- - -");
+    println!("- - -");*/
 
     // print firsts & follows of grammar
     println!("\n- - -");
@@ -398,7 +394,7 @@ fn main() {
     }
 
     // debug print grammar
-    println!("\n- - -");
+    /*println!("\n- - -");
     println!("GRAMMAR\n");
     for (key, value) in grammar {
         println!("{key}: ");
@@ -409,5 +405,5 @@ fn main() {
             println!("");
         }
         println!("");
-    }
+    }*/
 }
