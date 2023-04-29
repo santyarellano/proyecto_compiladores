@@ -1,6 +1,5 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::io;
 
 fn process_str(
@@ -293,7 +292,7 @@ fn main() {
         .read_line(&mut input)
         .expect("Failed to read line");
     // parse it to number
-    let n_rules: u16 = input.parse().expect("Invalind number of lines");
+    let n_rules: u16 = input.trim().parse().expect("Invalind number of lines");
     for _ in 0..n_rules {
         io::stdin()
             .read_line(&mut input)
