@@ -4,23 +4,9 @@ use std::fmt::{self, Display, Formatter};
 use std::fs;
 use std::io;
 
-enum Production {
-    Symbol(String),
-    Epsilon,
-}
-
-impl Display for Production {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Symbol(s) => write!(f, "{}", s),
-            Self::Epsilon => write!(f, "*eps*"),
-        }
-    }
-}
-
 fn process_str(
     txt: String,
-    grammar: &mut HashMap<String, Vec<Vec<Production>>>,
+    grammar: &mut HashMap<String, Vec<Vec<String>>>,
     first_non_terminal: &mut String,
 ) {
     let lines = txt.lines().collect::<Vec<&str>>();
@@ -38,7 +24,7 @@ fn process_str(
 
         let mut current = String::from("");
         let mut origin = String::from("");
-        let mut productions = Vec::new();
+        let mut productions: Vec<String> = Vec::new();
         let mut found_arrow = false;
 
         while peek != None {
@@ -54,7 +40,7 @@ fn process_str(
                             if iter.peek().unwrap() == &'\'' {
                                 // Epsilon found
                                 if found_arrow {
-                                    productions.push(Production::Epsilon);
+                                    productions.push("' '".to_string());
                                     current = "".to_string();
                                     iter.next();
                                     skip = true;
@@ -78,7 +64,7 @@ fn process_str(
                             }
                         } else if found_arrow {
                             // Origin exists, append to productions
-                            productions.push(Production::Symbol(current.clone()));
+                            productions.push(current.clone());
                             current = "".to_string();
                         } else {
                             println!("Wrong Line! There can only be one origin.");
@@ -120,7 +106,7 @@ fn process_str(
                 return;
             } else if found_arrow {
                 // Origin exists, append to productions
-                productions.push(Production::Symbol(current.clone()));
+                productions.push(current.clone());
             } else {
                 println!("Wrong Line! There can only be one origin.");
                 return;
@@ -144,12 +130,12 @@ fn process_str(
 
 /// Gets firsts and follows of a given grammar.
 fn get_firsts_and_follows(
-    grammar: &HashMap<String, Vec<Vec<Production>>>,
+    grammar: &HashMap<String, Vec<Vec<String>>>,
     first_non_terminal: &String,
-    terminals: &HashSet<String>,
-    non_terminals: &HashSet<String>,
+    terminals: &HashSet<&String>,
+    non_terminals: &HashSet<&String>,
 ) {
-    let mut firsts: HashMap<String, &HashSet<Production>> = HashMap::new();
+    let mut firsts: HashMap<String, &HashSet<String>> = HashMap::new();
     let mut follows: HashMap<String, &HashSet<String>> = HashMap::new();
 
     // instert $ to follow of first non terminal
@@ -168,19 +154,21 @@ fn get_firsts_and_follows(
                 }
                 None => {
                     // Nothing exists in firsts with this origin
-                    let mut set: HashSet<Production> = HashSet::new();
+                    let mut set: HashSet<String> = HashSet::new();
                     for prods in productions {
-                        match &prods[0] {
-                            // If it is a symbol
-                            Production::Symbol(symbol) => {
-                                // If it is a terminal, add it to set if not added
-                                if terminals.contains(symbol) {
-                                    //if set.contains(symbol) {}
-                                }
-                                // If it is non-terminal...
-                            }
+                        if prods[0] == "' '" {
                             // If it is epsilon
-                            Production::Epsilon => {}
+                        } else {
+                            // If it is a terminal, add it to set if not added
+                            if terminals.contains(&prods[0]) {
+                                if !set.contains(&prods[0]) {
+                                    // Not in set. We should add it.
+                                    set.insert(prods[0].clone());
+                                    must_repeat = true;
+                                }
+                            }
+                            // If it is non-terminal...
+                            todo!();
                         }
                     }
                 }
@@ -200,7 +188,7 @@ fn main() {
         fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");
 
     // Define grammar hashmap
-    let mut grammar: HashMap<String, Vec<Vec<Production>>> = HashMap::new();
+    let mut grammar: HashMap<String, Vec<Vec<String>>> = HashMap::new();
 
     // Process contents of file and store them in the grammar hashmap
     let mut first_non_terminal = "".to_string();
@@ -218,16 +206,10 @@ fn main() {
     for (_, value) in &grammar {
         for prods in value {
             for item in prods {
-                match item {
-                    Production::Epsilon => (),
-                    Production::Symbol(s) => {
-                        match non_terminals.get(s) {
-                            Some(_) => (),
-                            None => {
-                                // it's a terminal
-                                terminals.insert(s);
-                            }
-                        }
+                if item != "' '" {
+                    if !non_terminals.contains(item) {
+                        // it's a terminal
+                        terminals.insert(item);
                     }
                 }
             }
@@ -235,7 +217,7 @@ fn main() {
     }
 
     // Print terminals
-    print!("\nTerminal: ");
+    /*print!("\nTerminal: ");
     let mut first = true;
     for ter in terminals {
         if !first {
@@ -245,10 +227,10 @@ fn main() {
         }
         print!("{ter}");
     }
-    println!("");
+    println!("");*/
 
     // Print non-terminals
-    print!("Non terminal: ");
+    /*print!("Non terminal: ");
     first = true;
     for nter in non_terminals {
         if !first {
@@ -258,10 +240,25 @@ fn main() {
         }
         print!("{nter}");
     }
-    println!("");
+    println!("");*/
 
     // debug print first non terminal
     println!("\n- - -");
     println!("first non terminal: {}", first_non_terminal);
     println!("- - -");
+
+    get_firsts_and_follows(&grammar, &first_non_terminal, &terminals, &non_terminals);
+
+    // debug print grammar
+    println!("\n- - -");
+    for (key, value) in grammar {
+        println!("{key}: ");
+        for val in value {
+            for s in val {
+                print!("{s} ")
+            }
+            println!("");
+        }
+        println!("");
+    }
 }
