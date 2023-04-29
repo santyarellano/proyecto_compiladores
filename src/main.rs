@@ -1,6 +1,5 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{self, Display, Formatter};
 use std::fs;
 use std::io;
 
@@ -128,14 +127,90 @@ fn process_str(
     }
 }
 
-/// Gets firsts and follows of a given grammar.
-fn get_firsts_and_follows(
+/// Recursive function to get firsts of a non terminal
+fn get_firsts(
     grammar: &HashMap<String, Vec<Vec<String>>>,
+    terminals: &HashSet<&String>,
+    non_terminals: &HashSet<&String>,
+    symbol: &String,
+    caller: Option<&String>,
+) -> HashSet<String> {
+    let mut returning_set: HashSet<String> = HashSet::new();
+
+    // base case: this symbol is a terminal or epsilon.
+    if terminals.contains(symbol) || symbol == "' '" {
+        returning_set.insert(symbol.to_string());
+    }
+    // this symbol is a non-terminal
+    else if non_terminals.contains(symbol) {
+        // see first elements in grammar with this symbol
+        match grammar.get(symbol) {
+            Some(prods) => {
+                // iterate over productions to see first elements.
+                for prod in prods {
+                    // we start checking at 0 (first element)
+                    let mut pos = 0;
+                    let mut should_continue = true;
+
+                    while should_continue {
+                        should_continue = false;
+
+                        // if first element at pos is the same at caller, ignore this iteration to avoid infinite loop
+                        match caller {
+                            Some(caller_symbol) => {
+                                if &prod[pos] == caller_symbol {
+                                    continue;
+                                }
+                            }
+                            None => {}
+                        }
+
+                        // get firsts of element at pos in production
+                        let mut obtained_firsts =
+                            get_firsts(grammar, terminals, non_terminals, &prod[pos], Some(symbol));
+
+                        // ***** debug ******
+                        // print analisis
+                        /*println!("analyzing firsts of {}", prod[pos]);
+                        print!("obtained: ");
+                        for it in &obtained_firsts {
+                            print!("{it}, ");
+                        }
+                        println!("\n");*/
+
+                        // check if epsilon exists in such firsts
+                        if obtained_firsts.contains(&"' '".to_string()) {
+                            // epsilon exists in set; is this not the last item?
+                            if pos + 1 == prod.len() {
+                                // it is the last item, epsilon remains.
+                                returning_set.extend(obtained_firsts);
+                            } else if pos + 1 < prod.len() {
+                                // it is not the last item, remove epsilon and get firsts of next item.
+                                obtained_firsts.remove("' '");
+                                returning_set.extend(obtained_firsts);
+                                pos += 1;
+                                should_continue = true;
+                            }
+                        } else {
+                            // epsilon doesn't exist in such firsts
+                            returning_set.extend(obtained_firsts);
+                        }
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+
+    return returning_set;
+}
+
+/// Gets firsts and follows of a given grammar.
+/*fn get_firsts_and_follows(
     first_non_terminal: &String,
     terminals: &HashSet<&String>,
     non_terminals: &HashSet<&String>,
 ) {
-    let mut firsts: HashMap<String, &HashSet<String>> = HashMap::new();
     let mut follows: HashMap<String, &HashSet<String>> = HashMap::new();
 
     // instert $ to follow of first non terminal
@@ -143,39 +218,8 @@ fn get_firsts_and_follows(
         first_non_terminal.clone(),
         &HashSet::from_iter(vec!["$".to_string()]),
     );
-
-    // Assign firsts
-    let mut must_repeat = false;
-    while must_repeat {
-        for (origin, productions) in grammar {
-            match firsts.get(origin) {
-                Some(&set) => {
-                    // Someting already exists in firsts with this origin
-                }
-                None => {
-                    // Nothing exists in firsts with this origin
-                    let mut set: HashSet<String> = HashSet::new();
-                    for prods in productions {
-                        if prods[0] == "' '" {
-                            // If it is epsilon
-                        } else {
-                            // If it is a terminal, add it to set if not added
-                            if terminals.contains(&prods[0]) {
-                                if !set.contains(&prods[0]) {
-                                    // Not in set. We should add it.
-                                    set.insert(prods[0].clone());
-                                    must_repeat = true;
-                                }
-                            }
-                            // If it is non-terminal...
-                            todo!();
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
+*/
 
 fn main() {
     // Ask for file to read
@@ -247,7 +291,17 @@ fn main() {
     println!("first non terminal: {}", first_non_terminal);
     println!("- - -");
 
-    get_firsts_and_follows(&grammar, &first_non_terminal, &terminals, &non_terminals);
+    // print firsts of grammar
+    println!("\n- - -");
+    for nterm in &non_terminals {
+        let firsts = get_firsts(&grammar, &terminals, &non_terminals, nterm, None);
+        println!("{nterm}: ");
+        print!("FIRST = ");
+        for it in firsts {
+            print!("{it}, ");
+        }
+        println!("\n");
+    }
 
     // debug print grammar
     println!("\n- - -");
