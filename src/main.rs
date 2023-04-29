@@ -205,29 +205,93 @@ fn get_firsts(
     return returning_set;
 }
 
-/// Gets firsts and follows of a given grammar.
-/*fn get_firsts_and_follows(
-    first_non_terminal: &String,
+/// Recursive function to get follows of a non terminal
+fn get_follows(
+    grammar: &HashMap<String, Vec<Vec<String>>>,
     terminals: &HashSet<&String>,
     non_terminals: &HashSet<&String>,
-) {
-    let mut follows: HashMap<String, &HashSet<String>> = HashMap::new();
+    symbol: &String,
+    first_non_terminal: &String,
+    caller: Option<&String>,
+) -> HashSet<String> {
+    let mut returning_set: HashSet<String> = HashSet::new();
 
-    // instert $ to follow of first non terminal
-    follows.insert(
-        first_non_terminal.clone(),
-        &HashSet::from_iter(vec!["$".to_string()]),
-    );
+    // check if this symbol is the first non terminal.
+    if symbol == first_non_terminal {
+        returning_set.insert("$".to_string());
+    }
+
+    // go through grammar to find this item in right hand of definitions
+    for (origin, prods) in grammar {
+        for prod in prods {
+            for mut pos in 0..prod.len() {
+                // check if current item is the symbol we're looking for
+                if &prod[pos] == symbol {
+                    // we should act until we find a follow that doesn't contain epsilon or end the production.
+                    let mut should_repeat_next = true;
+                    while should_repeat_next {
+                        should_repeat_next = false;
+
+                        // is this the last item?
+                        if pos + 1 == prod.len() {
+                            // this is the last item, is the origin the caller of this follows?
+                            match caller {
+                                Some(caller_symbol) => {
+                                    if caller_symbol == &prod[pos] {
+                                        // this is the caller of this follows, we should avoid recursion. Just continue
+                                        break;
+                                    }
+                                }
+                                None => {}
+                            }
+
+                            //use follow of origin
+                            let origin_follows = get_follows(
+                                grammar,
+                                terminals,
+                                non_terminals,
+                                origin,
+                                first_non_terminal,
+                                Some(symbol),
+                            );
+                            returning_set.extend(origin_follows);
+                        } else {
+                            // this is not the last item, act upon next item
+                            // check if next item is this same item; if so, just continue
+                            if &prod[pos + 1] == &prod[pos] {
+                                continue;
+                            }
+                            // if not, get firsts of next item
+                            let mut next_firsts =
+                                get_firsts(grammar, terminals, non_terminals, &prod[pos + 1], None);
+                            // check if such firsts have epsilon
+                            if next_firsts.contains("' '") {
+                                // they do, in such case we concatenate (without epsilon) and do the same for next item.
+                                next_firsts.remove("' '");
+                                returning_set.extend(next_firsts);
+                                should_repeat_next = true;
+                                pos += 1;
+                            } else {
+                                // they don't, we should just add such firsts
+                                returning_set.extend(next_firsts);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return returning_set;
 }
-*/
 
 fn main() {
     // Ask for file to read
     println!("Enter file path to process: ");
-    let mut file_path = String::new();
-    io::stdin()
-        .read_line(&mut file_path)
-        .expect("Failed to read line");
+    let mut file_path = "test_txts/input1.txt"; //String::new();
+                                                /*io::stdin()
+                                                .read_line(&mut file_path)
+                                                .expect("Failed to read line");*/
     let file_contents =
         fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");
 
@@ -291,13 +355,28 @@ fn main() {
     println!("first non terminal: {}", first_non_terminal);
     println!("- - -");
 
-    // print firsts of grammar
+    // print firsts & follows of grammar
     println!("\n- - -");
     for nterm in &non_terminals {
+        // firsts
         let firsts = get_firsts(&grammar, &terminals, &non_terminals, nterm, None);
         println!("{nterm}: ");
         print!("FIRST = ");
         for it in firsts {
+            print!("{it}, ");
+        }
+
+        // follows
+        print!("\nFOLLOW = ");
+        let follows = get_follows(
+            &grammar,
+            &terminals,
+            &non_terminals,
+            nterm,
+            &first_non_terminal,
+            None,
+        );
+        for it in follows {
             print!("{it}, ");
         }
         println!("\n");
