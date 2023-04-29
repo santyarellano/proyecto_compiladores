@@ -305,6 +305,7 @@ fn main() {
 
     // debug print grammar
     println!("\n- - -");
+    println!("GRAMMAR\n");
     for (key, value) in grammar {
         println!("{key}: ");
         for val in value {
