@@ -287,20 +287,36 @@ fn get_follows(
 
 fn main() {
     // Ask for file to read
-    println!("Enter file path to process: ");
-    let mut file_path = "test_txts/input1.txt"; //String::new();
-                                                /*io::stdin()
-                                                .read_line(&mut file_path)
-                                                .expect("Failed to read line");*/
+    println!("Enter grammar (starting with number of rules): ");
+    let mut input = String::new();
+    io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    // parse it to number
+    let n_rules: u16 = input.parse().expect("Invalind number of lines");
+    for _ in 0..n_rules {
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+    }
+
+    /*let mut file_path = String::new();
+    io::stdin()
+        .read_line(&mut file_path)
+        .expect("Failed to read line");
     let file_contents =
-        fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");
+        fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");*/
+
+    println!("********");
+    println!("{}", input);
+    println!("********");
 
     // Define grammar hashmap
     let mut grammar: HashMap<String, Vec<Vec<String>>> = HashMap::new();
 
     // Process contents of file and store them in the grammar hashmap
     let mut first_non_terminal = "".to_string();
-    process_str(file_contents, &mut grammar, &mut first_non_terminal);
+    process_str(input, &mut grammar, &mut first_non_terminal);
 
     // Get terminal and non-terminal symbols
     let mut non_terminals = HashSet::new();
