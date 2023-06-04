@@ -3,6 +3,53 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
 
+struct SlrRule {
+    origin: String,
+    prod: Vec<String>,
+    num: usize,
+    is_extended: bool,
+}
+
+impl SlrRule {
+    fn new(origin: String, prod: &Vec<String>, rule_number: usize) -> SlrRule {
+        let mut new_prod: Vec<String> = Vec::new();
+        // add pointer
+        new_prod.push("'*'".to_string());
+        new_prod.append(&mut prod.clone());
+        return SlrRule {
+            origin,
+            prod: new_prod,
+            num: rule_number,
+            is_extended: false,
+        };
+    }
+
+    fn to_string(&self) -> String {
+        let mut ret = "".to_string();
+        ret += &(self.num.to_string() + &". ".to_string() + &self.origin + " -> ");
+        for prod in self.prod.iter() {
+            ret += &(prod.to_owned() + &" ".to_string().to_owned());
+        }
+        return ret;
+    }
+}
+
+struct SlrState {
+    kernel: Vec<SlrRule>,
+    extended_state: Vec<SlrRule>,
+    transitions: Vec<(String, usize)>,
+}
+
+impl SlrState {
+    fn new() -> SlrState {
+        SlrState {
+            kernel: Vec::new(),
+            extended_state: Vec::new(),
+            transitions: Vec::new(),
+        }
+    }
+}
+
 fn process_str(
     txt: String,
     grammar: &mut HashMap<String, Vec<Vec<String>>>,
@@ -285,6 +332,65 @@ fn get_follows(
     return returning_set;
 }
 
+fn generate_slr(slr_kernels: &HashSet<Vec<SlrRule>>) {}
+
+fn print_grammar(grammar: &HashMap<String, Vec<Vec<String>>>) {
+    println!("\n- - -");
+    println!("GRAMMAR\n");
+    for (key, value) in grammar {
+        println!("{key}: ");
+        for val in value {
+            for s in val {
+                print!("{s} ")
+            }
+            println!("");
+        }
+        println!("");
+    }
+}
+
+fn print_extended_grammar(extended_grammar: &Vec<SlrRule>) {
+    println!("\n- - -");
+    println!("EXTENDED GRAMMAR\n");
+    for rule in extended_grammar {
+        println!("{}", rule.to_string());
+    }
+}
+
+fn print_firsts_follows(
+    grammar: &HashMap<String, Vec<Vec<String>>>,
+    non_terminals: &HashSet<&String>,
+    terminals: &HashSet<&String>,
+    first_non_terminal: &String,
+) {
+    println!("\n- - -");
+    println!("FIRSTS & FOLLOWS \n");
+    for nterm in non_terminals {
+        // firsts
+        let firsts = get_firsts(&grammar, &terminals, &non_terminals, nterm, None);
+        println!("{nterm}: ");
+        print!("FIRST = ");
+        for it in firsts {
+            print!("{it}, ");
+        }
+
+        // follows
+        print!("\nFOLLOW = ");
+        let follows = get_follows(
+            &grammar,
+            &terminals,
+            &non_terminals,
+            nterm,
+            &first_non_terminal,
+            None,
+        );
+        for it in follows {
+            print!("{it}, ");
+        }
+        println!("\n");
+    }
+}
+
 fn main() {
     // Choose whether to use a file or input the grammar
     let _use_file = true;
@@ -370,44 +476,32 @@ fn main() {
     println!("first non terminal: {}", first_non_terminal);
     println!("- - -");*/
 
-    // print firsts & follows of grammar
-    println!("\n- - -");
-    for nterm in &non_terminals {
-        // firsts
-        let firsts = get_firsts(&grammar, &terminals, &non_terminals, nterm, None);
-        println!("{nterm}: ");
-        print!("FIRST = ");
-        for it in firsts {
-            print!("{it}, ");
-        }
+    //print_grammar(&grammar);
 
-        // follows
-        print!("\nFOLLOW = ");
-        let follows = get_follows(
-            &grammar,
-            &terminals,
-            &non_terminals,
-            nterm,
-            &first_non_terminal,
-            None,
-        );
-        for it in follows {
-            print!("{it}, ");
+    print_firsts_follows(&grammar, &non_terminals, &terminals, &first_non_terminal);
+
+    // = = = SLR = = =
+    let mut extended_grammar: Vec<SlrRule> = Vec::new();
+    //      add extended grammar rule
+    extended_grammar.push(SlrRule {
+        origin: first_non_terminal.clone() + "'",
+        prod: vec![first_non_terminal.clone()],
+        num: 0,
+        is_extended: true,
+    });
+    //      add rules
+    for item in grammar.iter() {
+        for prod in item.1.iter() {
+            extended_grammar.push(SlrRule {
+                origin: item.0.clone(),
+                prod: prod.clone(),
+                num: extended_grammar.len(),
+                is_extended: false,
+            })
         }
-        println!("\n");
     }
 
-    // debug print grammar
-    /*println!("\n- - -");
-    println!("GRAMMAR\n");
-    for (key, value) in grammar {
-        println!("{key}: ");
-        for val in value {
-            for s in val {
-                print!("{s} ")
-            }
-            println!("");
-        }
-        println!("");
-    }*/
+    print_extended_grammar(&extended_grammar);
+
+    let slr: Vec<SlrState> = Vec::new();
 }
