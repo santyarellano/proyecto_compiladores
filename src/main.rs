@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
 
+#[derive(Eq, Hash, PartialEq, Clone)]
 struct SlrRule {
     origin: String,
     prod: Vec<String>,
@@ -24,6 +25,12 @@ impl SlrRule {
         };
     }
 
+    fn init(&mut self) {
+        let mut new_prod = vec!["'*'".to_string()];
+        new_prod.append(&mut self.prod.clone());
+        self.prod = new_prod;
+    }
+
     fn to_string(&self) -> String {
         let mut ret = "".to_string();
         ret += &(self.num.to_string() + &". ".to_string() + &self.origin + " -> ");
@@ -32,21 +39,118 @@ impl SlrRule {
         }
         return ret;
     }
+
+    fn get_reading_symbol(&self) -> Option<String> {
+        for i in 0..self.prod.len() {
+            if self.prod[i] == "'*'" && i < self.prod.len() - 1 {
+                return Some(self.prod[i + 1].clone());
+            }
+        }
+
+        return None;
+    }
+
+    fn advance(&mut self) {
+        for i in 0..(self.prod.len() - 1) {
+            if self.prod[i] == "'*'" {
+                self.prod.swap(i, i + 1);
+                return;
+            }
+        }
+    }
 }
 
 struct SlrState {
-    kernel: Vec<SlrRule>,
-    extended_state: Vec<SlrRule>,
-    transitions: Vec<(String, usize)>,
+    kernel: HashSet<SlrRule>,
+    extended_state: HashSet<SlrRule>,
+    transitions: HashSet<(String, usize)>,
 }
 
 impl SlrState {
     fn new() -> SlrState {
         SlrState {
-            kernel: Vec::new(),
-            extended_state: Vec::new(),
-            transitions: Vec::new(),
+            kernel: HashSet::new(),
+            extended_state: HashSet::new(),
+            transitions: HashSet::new(),
         }
+    }
+
+    fn get_reading_symbols(&self) -> HashSet<String> {
+        let mut symbols: HashSet<String> = HashSet::new();
+
+        // from kernel
+        for rule in self.kernel.iter() {
+            let symbol = rule.get_reading_symbol();
+            match symbol {
+                Some(s) => {
+                    symbols.insert(s);
+                }
+                None => {}
+            }
+        }
+
+        // from extended
+        for rule in self.extended_state.iter() {
+            let symbol = rule.get_reading_symbol();
+            match symbol {
+                Some(s) => {
+                    symbols.insert(s);
+                }
+                None => {}
+            }
+        }
+
+        return symbols;
+    }
+
+    fn get_next_kernel(&self, reading_symbol: &String) -> HashSet<SlrRule> {
+        let mut new_kernel: HashSet<SlrRule> = HashSet::new();
+
+        // from kernel
+        for rule in self.kernel.iter() {
+            match rule.get_reading_symbol() {
+                Some(symbol) => {
+                    if symbol == reading_symbol.clone() {
+                        let mut new_rule = rule.clone();
+                        new_rule.advance();
+                        new_kernel.insert(new_rule);
+                    }
+                }
+                None => {}
+            }
+        }
+
+        // from extended
+        for rule in self.extended_state.iter() {
+            match rule.get_reading_symbol() {
+                Some(symbol) => {
+                    if symbol == reading_symbol.clone() {
+                        let mut new_rule = rule.clone();
+                        new_rule.advance();
+                        new_kernel.insert(new_rule);
+                    }
+                }
+                None => {}
+            }
+        }
+
+        return new_kernel;
+    }
+
+    fn to_string(&self) -> String {
+        let mut ret = "".to_string();
+
+        // add rules from kernel
+        for rule in self.kernel.iter() {
+            ret += &(rule.to_string() + "\n");
+        }
+
+        // add rules from extended
+        for rule in self.extended_state.iter() {
+            ret += &(rule.to_string() + "\n");
+        }
+
+        return ret;
     }
 }
 
@@ -332,9 +436,7 @@ fn get_follows(
     return returning_set;
 }
 
-fn generate_slr(slr_kernels: &HashSet<Vec<SlrRule>>) {}
-
-fn print_grammar(grammar: &HashMap<String, Vec<Vec<String>>>) {
+fn _print_grammar(grammar: &HashMap<String, Vec<Vec<String>>>) {
     println!("\n- - -");
     println!("GRAMMAR\n");
     for (key, value) in grammar {
@@ -389,6 +491,61 @@ fn print_firsts_follows(
         }
         println!("\n");
     }
+}
+
+fn get_extended_prods(extended_grammar: &Vec<SlrRule>, key: String) -> HashSet<SlrRule> {
+    let mut prods: HashSet<SlrRule> = HashSet::new();
+    for rule in extended_grammar.iter() {
+        if rule.origin == key {
+            let mut new_rule = rule.clone();
+            new_rule.init();
+            prods.insert(new_rule);
+        }
+    }
+
+    return prods;
+}
+
+fn print_slr(slr: &Vec<SlrState>) {
+    println!("\n- - -");
+    println!("SLR\n");
+    for i in 0..slr.len() {
+        println!("I{}:", i);
+        println!("{}", slr[i].to_string());
+    }
+}
+
+fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
+    let mut slr_len = 0;
+    let mut states_to_build: HashSet<usize> = HashSet::new();
+
+    // add state 0
+    let mut rule0 = extended_grammar[0].clone();
+    rule0.init();
+    let mut kernel0: HashSet<SlrRule> = HashSet::new();
+    kernel0.insert(rule0.clone());
+    let extended_prods = get_extended_prods(extended_grammar, rule0.get_reading_symbol().unwrap());
+    slr.push(SlrState {
+        kernel: kernel0,
+        extended_state: extended_prods,
+        transitions: HashSet::new(),
+    });
+    slr_len += 1;
+
+    // create state 0 transitions
+    let reading_symbols = slr[0].get_reading_symbols();
+    for symbol in reading_symbols.iter() {
+        // create new kernel advancing under such symbols
+        let new_kernel = slr[0].get_next_kernel(symbol);
+        let mut new_state = SlrState::new();
+        new_state.kernel = new_kernel;
+        slr[0].transitions.insert((symbol.clone(), slr_len));
+        slr.push(new_state);
+        states_to_build.insert(slr_len);
+        slr_len += 1;
+    }
+
+    // create rest of the states
 }
 
 fn main() {
@@ -503,5 +660,8 @@ fn main() {
 
     print_extended_grammar(&extended_grammar);
 
-    let slr: Vec<SlrState> = Vec::new();
+    let mut slr: Vec<SlrState> = Vec::new();
+    build_slr(&mut slr, &extended_grammar);
+
+    print_slr(&slr);
 }
