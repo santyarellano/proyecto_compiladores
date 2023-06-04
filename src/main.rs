@@ -546,6 +546,20 @@ fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
     }
 
     // create rest of the states
+    while !states_to_build.is_empty() {
+        let next_state_option = states_to_build.iter().next();
+        match next_state_option {
+            Some(state_idx) => {
+                // create this state
+                // init extended productions
+                // transitions
+                // remove this idx from statest to build
+                states_to_build.remove(&state_idx.clone());
+            }
+            None => {}
+        }
+        break;
+    }
 }
 
 fn main() {
