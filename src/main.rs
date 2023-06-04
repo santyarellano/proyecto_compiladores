@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::io;
 
 fn process_str(
@@ -285,33 +286,36 @@ fn get_follows(
 }
 
 fn main() {
-    // Ask for file to read
-    println!("Enter grammar (starting with number of rules): ");
-    let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line");
-    // parse it to number
-    let n_rules: u16 = input.trim().parse().expect("Invalind number of lines");
-    for _ in 0..n_rules {
+    // Choose whether to use a file or input the grammar
+    let _use_file = true;
+    let mut txt = String::new();
+    if !_use_file {
+        println!("Enter grammar (starting with number of rules): ");
         io::stdin()
-            .read_line(&mut input)
+            .read_line(&mut txt)
             .expect("Failed to read line");
+        // parse it to number
+        let n_rules: u16 = txt.trim().parse().expect("Invalind number of lines");
+        for _ in 0..n_rules {
+            io::stdin()
+                .read_line(&mut txt)
+                .expect("Failed to read line");
+        }
+    } else {
+        println!("Enter filename: ");
+        let mut file_path = String::new();
+        io::stdin()
+            .read_line(&mut file_path)
+            .expect("Failed to read line");
+        txt = fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");
     }
-
-    /*let mut file_path = String::new();
-    io::stdin()
-        .read_line(&mut file_path)
-        .expect("Failed to read line");
-    let file_contents =
-        fs::read_to_string(file_path.trim()).expect("Error reading file (check file path)");*/
 
     // Define grammar hashmap
     let mut grammar: HashMap<String, Vec<Vec<String>>> = HashMap::new();
 
     // Process contents of file and store them in the grammar hashmap
     let mut first_non_terminal = "".to_string();
-    process_str(input, &mut grammar, &mut first_non_terminal);
+    process_str(txt, &mut grammar, &mut first_non_terminal);
 
     // Get terminal and non-terminal symbols
     let mut non_terminals = HashSet::new();
