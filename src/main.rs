@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
 
-#[derive(Eq, Hash, PartialEq, Clone)]
+#[derive(Eq, Hash, PartialEq, Clone, PartialOrd, Ord)]
 struct SlrRule {
     origin: String,
     prod: Vec<String>,
@@ -12,7 +12,7 @@ struct SlrRule {
 }
 
 impl SlrRule {
-    fn new(origin: String, prod: &Vec<String>, rule_number: usize) -> SlrRule {
+    fn _new(origin: String, prod: &Vec<String>, rule_number: usize) -> SlrRule {
         let mut new_prod: Vec<String> = Vec::new();
         // add pointer
         new_prod.push("'*'".to_string());
@@ -144,7 +144,7 @@ impl SlrState {
         for rule in self.kernel.iter() {
             ret += &(rule.to_string() + "\n");
         }
-
+        ret += "- - - - - - -\n";
         // add rules from extended
         for rule in self.extended_state.iter() {
             ret += &(rule.to_string() + "\n");
@@ -506,24 +506,60 @@ fn get_extended_prods(extended_grammar: &Vec<SlrRule>, key: String) -> HashSet<S
     return prods;
 }
 
+fn add_extender_prods(extended_grammar: &Vec<SlrRule>, state: &mut SlrState) {
+    let current_symbols = state.get_reading_symbols();
+    for symbol in current_symbols.iter() {
+        for rule in extended_grammar.iter() {
+            if rule.origin == symbol.clone() {
+                let mut new_rule = rule.clone();
+                new_rule.init();
+                state.extended_state.insert(new_rule);
+            }
+        }
+    }
+}
+
 fn print_slr(slr: &Vec<SlrState>) {
     println!("\n- - -");
     println!("SLR\n");
     for i in 0..slr.len() {
         println!("I{}:", i);
-        println!("{}", slr[i].to_string());
+        println!("{}\n", slr[i].to_string());
     }
+}
+
+fn kernel_to_string(kernel: &HashSet<SlrRule>) -> String {
+    let mut ret = "".to_string();
+
+    for rule in kernel.iter() {
+        ret += &(rule.to_string());
+    }
+
+    return ret;
+}
+
+fn insert_to_kernels_hash(
+    hash: &mut HashMap<Vec<SlrRule>, usize>,
+    kernel: &HashSet<SlrRule>,
+    idx: usize,
+) {
+    let mut kernel_to_add = Vec::from_iter(kernel.clone());
+    kernel_to_add.sort();
+    hash.insert(kernel_to_add, idx);
 }
 
 fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
     let mut slr_len = 0;
     let mut states_to_build: HashSet<usize> = HashSet::new();
+    let mut kernels: HashMap<Vec<SlrRule>, usize> = HashMap::new();
 
     // add state 0
     let mut rule0 = extended_grammar[0].clone();
     rule0.init();
     let mut kernel0: HashSet<SlrRule> = HashSet::new();
     kernel0.insert(rule0.clone());
+    // add kernel 0 to kernels hashmap
+    insert_to_kernels_hash(&mut kernels, &kernel0, 0);
     let extended_prods = get_extended_prods(extended_grammar, rule0.get_reading_symbol().unwrap());
     slr.push(SlrState {
         kernel: kernel0,
@@ -537,6 +573,7 @@ fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
     for symbol in reading_symbols.iter() {
         // create new kernel advancing under such symbols
         let new_kernel = slr[0].get_next_kernel(symbol);
+        insert_to_kernels_hash(&mut kernels, &new_kernel, slr_len);
         let mut new_state = SlrState::new();
         new_state.kernel = new_kernel;
         slr[0].transitions.insert((symbol.clone(), slr_len));
@@ -548,17 +585,53 @@ fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
     // create rest of the states
     while !states_to_build.is_empty() {
         let next_state_option = states_to_build.iter().next();
+        let mut state_idx: Option<usize> = None;
         match next_state_option {
-            Some(state_idx) => {
-                // create this state
-                // init extended productions
-                // transitions
-                // remove this idx from statest to build
-                states_to_build.remove(&state_idx.clone());
+            Some(idx) => {
+                state_idx = Some(idx.clone());
             }
             None => {}
         }
-        break;
+        if state_idx.is_some() {
+            let idx = state_idx.unwrap();
+            // create this state
+            // init extended productions
+            add_extender_prods(extended_grammar, &mut slr[idx]);
+            // transitions
+            let next_symbols = slr[idx].get_reading_symbols();
+            for symbol in next_symbols.iter() {
+                // get new kernel
+                let mut new_kernel = Vec::from_iter(slr[idx].get_next_kernel(symbol));
+                new_kernel.sort();
+                // check if kernel already exists
+                match kernels.get(&new_kernel) {
+                    Some(existing_idx) => {
+                        // just add a transition for this found state
+                        slr[idx].transitions.insert((symbol.clone(), *existing_idx));
+                    }
+                    None => {
+                        println!("\nNot found:");
+                        for rule in new_kernel.iter() {
+                            println!("{}", rule.to_string());
+                        }
+                        println!("");
+
+                        // create new state
+                        // create new kernel advancing under such symbols and add transition
+                        let new_kernel = slr[idx].get_next_kernel(symbol);
+                        insert_to_kernels_hash(&mut kernels, &new_kernel, slr_len);
+                        let mut new_state = SlrState::new();
+                        new_state.kernel = new_kernel;
+                        slr[idx].transitions.insert((symbol.clone(), slr_len));
+                        slr.push(new_state);
+                        states_to_build.insert(slr_len);
+                        slr_len += 1;
+                    }
+                }
+            }
+            // remove this idx from statest to build
+            states_to_build.remove(&idx);
+        }
     }
 }
 
