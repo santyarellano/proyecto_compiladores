@@ -137,7 +137,7 @@ impl SlrState {
         return new_kernel;
     }
 
-    fn to_string(&self) -> String {
+    fn _to_string(&self) -> String {
         let mut ret = "".to_string();
 
         // add rules from kernel
@@ -148,6 +148,18 @@ impl SlrState {
         // add rules from extended
         for rule in self.extended_state.iter() {
             ret += &(rule.to_string() + "\n");
+        }
+
+        return ret;
+    }
+
+    fn get_end_rules(&self) -> HashMap<String, usize> {
+        let mut ret = HashMap::new();
+
+        for rule in self.kernel.iter() {
+            if rule.prod.last().unwrap() == "'*'" {
+                ret.insert(rule.origin.clone(), rule.num);
+            }
         }
 
         return ret;
@@ -276,6 +288,18 @@ fn process_str(
             }
         }
     }
+}
+
+enum Action {
+    S(usize),
+    R(usize),
+    Acc,
+    Err,
+}
+
+struct SlrRow {
+    actions: HashMap<String, Action>,
+    gotos: HashMap<String, usize>,
 }
 
 /// Recursive function to get firsts of a non terminal
@@ -519,16 +543,16 @@ fn add_extender_prods(extended_grammar: &Vec<SlrRule>, state: &mut SlrState) {
     }
 }
 
-fn print_slr(slr: &Vec<SlrState>) {
+fn _print_slr(slr: &Vec<SlrState>) {
     println!("\n- - -");
     println!("SLR\n");
     for i in 0..slr.len() {
         println!("I{}:", i);
-        println!("{}\n", slr[i].to_string());
+        println!("{}\n", slr[i]._to_string());
     }
 }
 
-fn kernel_to_string(kernel: &HashSet<SlrRule>) -> String {
+fn _kernel_to_string(kernel: &HashSet<SlrRule>) -> String {
     let mut ret = "".to_string();
 
     for rule in kernel.iter() {
@@ -610,12 +634,6 @@ fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
                         slr[idx].transitions.insert((symbol.clone(), *existing_idx));
                     }
                     None => {
-                        println!("\nNot found:");
-                        for rule in new_kernel.iter() {
-                            println!("{}", rule.to_string());
-                        }
-                        println!("");
-
                         // create new state
                         // create new kernel advancing under such symbols and add transition
                         let new_kernel = slr[idx].get_next_kernel(symbol);
@@ -633,6 +651,174 @@ fn build_slr(slr: &mut Vec<SlrState>, extended_grammar: &Vec<SlrRule>) {
             states_to_build.remove(&idx);
         }
     }
+}
+
+fn build_slr_table(
+    slr: &Vec<SlrState>,
+    table: &mut Vec<SlrRow>,
+    terminals: &HashSet<&String>,
+    non_terminals: &HashSet<&String>,
+    grammar: &HashMap<String, Vec<Vec<String>>>,
+    first_non_terminal: &String,
+) {
+    for state in slr.iter() {
+        let mut row: SlrRow = SlrRow {
+            actions: HashMap::new(),
+            gotos: HashMap::new(),
+        };
+
+        // act upong transitions
+        for transition in state.transitions.iter() {
+            // if non terminal add goto
+            if non_terminals.contains(&transition.0) {
+                row.gotos.insert(transition.0.clone(), transition.1.clone());
+            }
+            // if terminal add s
+            else if terminals.contains(&transition.0) {
+                row.actions
+                    .insert(transition.0.clone(), Action::S(transition.1.clone()));
+            }
+        }
+
+        // act if state has end of reading (pointer at the end of production)
+        let ending_rules = state.get_end_rules();
+        if !ending_rules.is_empty() {
+            // add reduce for each follow of ending rule
+            for rule in ending_rules.iter() {
+                println!("rule {}: ", rule.1.clone().to_string());
+                let follows = get_follows(
+                    grammar,
+                    terminals,
+                    non_terminals,
+                    rule.0,
+                    first_non_terminal,
+                    None,
+                );
+
+                for symbol in follows {
+                    print!("{} ", symbol);
+                    match row.actions.get_mut(&symbol) {
+                        Some(v) => {
+                            // set error if row action already exists
+                            *v = Action::Err;
+                        }
+                        None => {
+                            // add reduce
+                            if rule.1.clone() == 0 as usize {
+                                row.actions.insert(symbol, Action::Acc);
+                            } else {
+                                row.actions.insert(symbol, Action::R(rule.1.clone()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        table.push(row);
+    }
+}
+
+fn slr_table_to_string(
+    table: &Vec<SlrRow>,
+    non_terminals: &HashSet<&String>,
+    terminals: &HashSet<&String>,
+) -> String {
+    let mut ret = "<table>".to_string();
+
+    // add headers
+    ret += "<tr>";
+    ret += "<th>state</th>";
+    for term in terminals.iter() {
+        ret += "<th>";
+        ret += term.clone();
+        ret += "</th>";
+    }
+    ret += "<th>$</th>";
+    for nterm in non_terminals.iter() {
+        ret += "<th>";
+        ret += nterm.clone();
+        ret += "</th>";
+    }
+    ret += "</tr>";
+
+    // add rows
+    for i in 0..table.len() {
+        ret += "<tr>";
+
+        // state id
+        ret += "<td>";
+        ret += &i.to_string();
+        ret += "</td>";
+
+        // contents of rows
+        //      actions
+        for term in terminals.iter() {
+            ret += "<td>";
+            match table[i].actions.get(term.clone()) {
+                Some(action) => match action {
+                    Action::Acc => {
+                        ret += "ACC";
+                    }
+                    Action::Err => {
+                        ret += "ERR";
+                    }
+                    Action::R(r) => {
+                        ret += "r";
+                        ret += &r.to_string();
+                    }
+                    Action::S(s) => {
+                        ret += "s";
+                        ret += &s.to_string();
+                    }
+                },
+                None => {}
+            }
+            ret += "</td>";
+        }
+        //      action ($)
+        ret += "<td>";
+        match table[i].actions.get("$") {
+            Some(action) => match action {
+                Action::Acc => {
+                    ret += "ACC";
+                }
+                Action::Err => {
+                    ret += "ERR";
+                }
+                Action::R(r) => {
+                    ret += "r";
+                    ret += &r.to_string();
+                }
+                Action::S(s) => {
+                    ret += "s";
+                    ret += &s.to_string();
+                }
+            },
+            None => {}
+        }
+        ret += "</td>";
+        //      gotos
+        for nterm in non_terminals.iter() {
+            ret += "<td>";
+            println!("gotos at {}:", i);
+            for goto in table[i].gotos.iter() {
+                println!("{}, {}", goto.0, goto.1);
+            }
+            match table[i].gotos.get(nterm.clone()) {
+                Some(goto) => {
+                    ret += &goto.to_string();
+                }
+                None => {}
+            }
+            ret += "</td>";
+        }
+
+        ret += "</tr>";
+    }
+
+    ret += "</table>";
+    return ret;
 }
 
 fn main() {
@@ -750,5 +936,20 @@ fn main() {
     let mut slr: Vec<SlrState> = Vec::new();
     build_slr(&mut slr, &extended_grammar);
 
-    print_slr(&slr);
+    _print_slr(&slr);
+
+    let mut slr_table: Vec<SlrRow> = Vec::new();
+    build_slr_table(
+        &slr,
+        &mut slr_table,
+        &terminals,
+        &non_terminals,
+        &grammar,
+        &first_non_terminal,
+    );
+
+    let table_html = slr_table_to_string(&slr_table, &non_terminals, &terminals);
+    println!("\n{}\n", table_html);
+
+    //print_slr(&slr);
 }
