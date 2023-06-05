@@ -685,7 +685,6 @@ fn build_slr_table(
         if !ending_rules.is_empty() {
             // add reduce for each follow of ending rule
             for rule in ending_rules.iter() {
-                println!("rule {}: ", rule.1.clone().to_string());
                 let follows = get_follows(
                     grammar,
                     terminals,
@@ -696,7 +695,6 @@ fn build_slr_table(
                 );
 
                 for symbol in follows {
-                    print!("{} ", symbol);
                     match row.actions.get_mut(&symbol) {
                         Some(v) => {
                             // set error if row action already exists
@@ -801,10 +799,6 @@ fn slr_table_to_string(
         //      gotos
         for nterm in non_terminals.iter() {
             ret += "<td>";
-            println!("gotos at {}:", i);
-            for goto in table[i].gotos.iter() {
-                println!("{}, {}", goto.0, goto.1);
-            }
             match table[i].gotos.get(nterm.clone()) {
                 Some(goto) => {
                     ret += &goto.to_string();
